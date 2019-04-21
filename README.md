@@ -1,6 +1,6 @@
 # Unofficial Java client for public ZenHub API
 
-Implements the read only actions of the [ZenHub API](https://github.com/ZenHubIO/API). Pull requests welcome!
+Implements the read-only API of the public [ZenHub API](https://github.com/ZenHubIO/API). Pull requests welcome!
 
 
 ## Installation
