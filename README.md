@@ -28,5 +28,6 @@ mvn install
 
 ## Usage
 
+See [ZHTest class](https://github.com/jgwest/zenhub-api-java-client/blob/master/tests/com/zhapi/tests/ZHTest.java) for sample API usage. 
 
 
