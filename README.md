@@ -28,6 +28,32 @@ mvn install
 
 ## Usage
 
+The exposed client services correspond to resources available through the [ZenHub API](https://github.com/ZenHubIO/API).
+
+These are:
+- Boards - See `BoardService.java`
+- Dependencies - See `DependenciesService.java`
+- Epic / Epics - See `EpicsService.java`
+- Issue Data / Issue Events - See `IssuesService.java`
+
+Example usage:
+```java
+// Generate a token in the API Tokens section of your ZenHub Dashboard 
+// (https://app.zenhub.com/dashboard/tokens)
+String yourZenHubApiKey = "/* your api token */"; 
+ZenHubClient zhClient = new ZenHubClient("https://api.zenhub.io", yourZenHubApiKey);
+
+IssuesService issuesService = new IssuesService(zhClient);
+
+long repositoryId = /* github repository id number*/;
+int issueNumber = /* issue number */;
+
+ApiResponse<GetIssueDataResponseJson> response = issuesService.getIssueData(repositoryId, issueNumber);
+
+GetIssueDataResponseJson json = response.getResponse();
+
+```
+
 See [ZHTest class](https://github.com/jgwest/zenhub-api-java-client/blob/master/tests/com/zhapi/tests/ZHTest.java) for sample API usage. 
 
 
