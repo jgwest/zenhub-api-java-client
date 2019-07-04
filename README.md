@@ -10,7 +10,7 @@ Implements the read-only API of the public [ZenHub API](https://github.com/ZenHu
 ```
 git clone https://github.com/jgwest/zenhub-api-java-client
 cd zenhub-api-java-client
-mvn install
+mvn install -DskipTests
 ```
 
 2) Add the client dependency into your Maven pom.xml
