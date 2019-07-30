@@ -68,7 +68,7 @@ public abstract class AbstractTest {
 			// Generate a token in the API Tokens section of your ZenHub Dashboard
 			// (https://app.zenhub.com/dashboard/tokens)
 			throw new ZenHubApiException(
-					"ZenHub API Key not found, specify -Dzenhubapikey=(your key api) with your key. Generate a key at https://app.zenhub.com/dashboard/tokens");
+					"ZenHub API Key not found, use -DskipTests or specify -Dzenhubapikey=(your key api) with your key. Generate a key at https://app.zenhub.com/dashboard/tokens");
 		}
 
 		ZenHubClient client = new ZenHubClient("https://api.zenhub.io", apiKey);
