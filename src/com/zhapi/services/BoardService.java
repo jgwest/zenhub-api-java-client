@@ -43,4 +43,14 @@ public class BoardService {
 
 	}
 
+	public ApiResponse<GetBoardForRepositoryResponseJson> getZenHubBoardForRepo(long repoId, String workspaceId) {
+
+		String url = "/p2/workspaces/" + workspaceId + "/repositories/" + repoId + "/board";
+
+		ApiResponse<GetBoardForRepositoryResponseJson> response = zenhubClient.get(url, GetBoardForRepositoryResponseJson.class);
+
+		return new ApiResponse<GetBoardForRepositoryResponseJson>((GetBoardForRepositoryResponseJson) response.getResponse(),
+				response.getRateLimitStatus(), response.getResponseBody());
+
+	}
 }

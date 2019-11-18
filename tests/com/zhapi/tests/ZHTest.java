@@ -28,6 +28,7 @@ import java.util.stream.Collectors;
 import org.junit.Test;
 
 import com.zhapi.ApiResponse;
+import com.zhapi.ZHUtil;
 import com.zhapi.json.BoardPipelineEntryJson;
 import com.zhapi.json.BoardPipelineIssueEntryJson;
 import com.zhapi.json.DependencyBlockingOrBlockedJson;
@@ -35,6 +36,7 @@ import com.zhapi.json.DependencyJson;
 import com.zhapi.json.EpicIssueJson;
 import com.zhapi.json.IssueEventJson;
 import com.zhapi.json.PipelineJson;
+import com.zhapi.json.WorkspaceJson;
 import com.zhapi.json.responses.DependenciesForARepoResponseJson;
 import com.zhapi.json.responses.GetBoardForRepositoryResponseJson;
 import com.zhapi.json.responses.GetEpicResponseJson;
@@ -44,6 +46,7 @@ import com.zhapi.services.BoardService;
 import com.zhapi.services.DependenciesService;
 import com.zhapi.services.EpicsService;
 import com.zhapi.services.IssuesService;
+import com.zhapi.services.WorkspaceService;
 
 /**
  * NOTE: Running this test requires a ZenHub API token based on your GitHub id.
@@ -57,6 +60,15 @@ public class ZHTest extends AbstractTest {
 		BoardService bs = new BoardService(getClient());
 
 		GetBoardForRepositoryResponseJson ar = bs.getZenHubBoardForRepo(openLibertyRepoId).getResponse();
+
+		doBoardTest_assertExpectedResponse(ar);
+
+		ar = bs.getZenHubBoardForRepo(openLibertyRepoId, "5c3e0d32cd4b0547e1da3c5b").getResponse();
+		doBoardTest_assertExpectedResponse(ar);
+
+	}
+
+	private static void doBoardTest_assertExpectedResponse(GetBoardForRepositoryResponseJson ar) {
 
 		List<BoardPipelineEntryJson> pipelines = ar.getPipelines();
 
@@ -255,7 +267,8 @@ public class ZHTest extends AbstractTest {
 			List<Integer> expectedIssues = Arrays.asList(75, 90, 94, 283, 364, 421, 512, 515, 552, 592, 640, 642, 644, 645, 646,
 					647, 783, 784, 785, 919);
 
-			List<Integer> actualIssues = c.getIssues().stream().map(e -> e.getIssue_number()).collect(Collectors.toList());
+			List<Integer> actualIssues = c.getIssues().stream().map(e -> e.getIssue_number()).sorted()
+					.collect(Collectors.toList());
 
 			assertTrue(expectedIssues.equals(actualIssues));
 
@@ -325,6 +338,32 @@ public class ZHTest extends AbstractTest {
 			assertTrue(expectedEvents.toString().equals(events.toString()));
 
 		}
+	}
+
+	@Test
+	public void doWorkspaceTest() {
+
+		WorkspaceService service = new WorkspaceService(getClient());
+
+		ApiResponse<List<WorkspaceJson>> ar = service.getZenHubWorkspacesForARepository(openLibertyRepoId);
+		assertNotNull(ar);
+		assertNotNull(ar.getResponse());
+
+		List<WorkspaceJson> workspaces = ar.getResponse();
+
+		System.out.println(ZHUtil.toPrettyString(workspaces));
+
+		WorkspaceJson defaultWorkspace = workspaces.stream().filter(e -> e.getId().equals("5c3e0d32cd4b0547e1da3c5b")).findFirst()
+				.orElseThrow(RuntimeException::new);
+
+		assertNotNull(defaultWorkspace);
+
+		WorkspaceJson ssoWorkspace = workspaces.stream().filter(e -> e.getId().equals("5d78fbf2b9080000013ae709")).findFirst()
+				.orElseThrow(RuntimeException::new);
+
+		assertNotNull(ssoWorkspace);
+		assertTrue(ssoWorkspace.getName().equals("Security SSO"));
+
 	}
 
 	private static IssueEventJson createIssueEventJson(int userId, String type, long createdAt) {

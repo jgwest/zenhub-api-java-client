@@ -23,6 +23,7 @@ import java.util.List;
 import com.zhapi.ApiResponse;
 import com.zhapi.ZenHubClient;
 import com.zhapi.json.IssueEventJson;
+import com.zhapi.json.MoveIssueToPipelineBodyJson;
 import com.zhapi.json.responses.GetIssueDataResponseJson;
 
 /**
@@ -63,4 +64,32 @@ public class IssuesService {
 		return new ApiResponse<List<IssueEventJson>>(result, response.getRateLimitStatus(), response.getResponseBody());
 
 	}
+
+	public void moveIssueToPipeline(String workspaceId, long repoId, int issueNumber, String pipelineId, int position) {
+
+		this.moveIssueToPipelineInner(workspaceId, repoId, issueNumber, pipelineId, null, position);
+	}
+
+	public void moveIssueToPipeline(String workspaceId, long repoId, int issueNumber, String pipelineId, String position) {
+		this.moveIssueToPipelineInner(workspaceId, repoId, issueNumber, pipelineId, position, null);
+
+	}
+
+	private void moveIssueToPipelineInner(String workspaceId, long repoId, int issueNumber, String pipelineId, String positionStr,
+			Integer positionVal) {
+
+		String url = "/p2/workspaces/" + workspaceId + "/repositories/" + repoId + "/issues/" + issueNumber + "/moves";
+
+		MoveIssueToPipelineBodyJson body = new MoveIssueToPipelineBodyJson();
+		body.setPipeline_id(pipelineId);
+		if (positionStr != null) {
+			body.setPosition(positionStr);
+		} else {
+			body.setPosition(positionVal);
+		}
+
+		zenhubClient.post(url, body, null);
+
+	}
+
 }

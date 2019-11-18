@@ -16,6 +16,7 @@
 
 package com.zhapi;
 
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -77,6 +78,69 @@ public class ZenHubClient {
 
 	}
 
+	public <T> ApiResponse<T> post(String apiUrl, Object postBody, Class<T> clazz) {
+
+		ApiResponse<String> body = postRequest(apiUrl, postBody);
+
+		if (DEBUG) {
+			log.out(body.getResponse());
+		}
+
+		if (clazz == null) {
+			return new ApiResponse<T>(null, body.getRateLimitStatus(), body.getResponse());
+		}
+
+		ObjectMapper om = new ObjectMapper();
+		try {
+			T parsed = om.readValue(body.getResponse(), clazz);
+			return new ApiResponse<T>(parsed, body.getRateLimitStatus(), body.getResponse());
+		} catch (Exception e) {
+			System.err.println("Unable to parse: " + body.getResponse());
+			throw ZenHubApiException.createFromThrowable(e);
+		}
+
+	}
+
+	private ApiResponse<String> postRequest(String requestUrlParam, Object postBody) {
+
+		requestUrlParam = ensureDoesNotBeginsWithSlash(requestUrlParam);
+
+		HttpURLConnection httpRequest;
+		try {
+			httpRequest = createConnection("https://" + this.baseApiUrl + "/" + requestUrlParam, "POST", apiKey);
+
+			if (postBody != null) {
+				httpRequest.setRequestProperty("Content-Type", "application/json");
+				httpRequest.setDoOutput(true);
+
+				DataOutputStream payloadStream = new DataOutputStream(httpRequest.getOutputStream());
+				payloadStream.write(postBody.toString().getBytes());
+			}
+
+			final int code = httpRequest.getResponseCode();
+
+			int rateLimit_limit = httpRequest.getHeaderFieldInt("X-RateLimit-Limit", 0);
+			int rateLimit_used = httpRequest.getHeaderFieldInt("X-RateLimit-Used", 0);
+			long rateLimit_reset = httpRequest.getHeaderFieldLong("X-RateLimit-Reset", 0);
+
+			RateLimitStatus rateLimit = new RateLimitStatus(rateLimit_limit, rateLimit_used, rateLimit_reset);
+
+			InputStream is = httpRequest.getInputStream();
+
+			String body = readBody(is);
+
+			if (code != 200) {
+				throw new ZenHubApiException("Request failed - HTTP Code: " + code + "  body: " + body);
+			}
+
+			return new ApiResponse<String>(body, rateLimit, body);
+
+		} catch (IOException e) {
+			throw ZenHubApiException.createFromThrowable(e);
+		}
+
+	}
+
 	private ApiResponse<String> getRequest(String requestUrlParam) {
 
 		requestUrlParam = ensureDoesNotBeginsWithSlash(requestUrlParam);
@@ -94,7 +158,7 @@ public class ZenHubClient {
 
 			InputStream is = httpRequest.getInputStream();
 
-			String body = getBody(is);
+			String body = readBody(is);
 
 			if (code != 200) {
 				throw new ZenHubApiException("Request failed - HTTP Code: " + code + "  body: " + body);
@@ -126,7 +190,7 @@ public class ZenHubClient {
 		return connection;
 	}
 
-	private static String getBody(InputStream is) {
+	private static String readBody(InputStream is) {
 		StringBuilder sb = new StringBuilder();
 		int c;
 		byte[] barr = new byte[1024 * 64];
