@@ -45,6 +45,9 @@ public abstract class AbstractTest {
 	// https://github.com/OpenLiberty/open-liberty/
 	protected final long openLibertyRepoId = 103694377;
 
+	// https://github.com/eclipse/codewind/
+	protected final long codewindRepoId = 191986078;
+
 	protected static ZenHubClient getClient() {
 		File f = new File(new File(System.getProperty("user.home"), ".zenhubapitests"), "test.properties");
 

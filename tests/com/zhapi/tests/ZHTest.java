@@ -16,12 +16,14 @@
 
 package com.zhapi.tests;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -36,6 +38,8 @@ import com.zhapi.json.DependencyJson;
 import com.zhapi.json.EpicIssueJson;
 import com.zhapi.json.IssueEventJson;
 import com.zhapi.json.PipelineJson;
+import com.zhapi.json.ReleaseReportIssueJson;
+import com.zhapi.json.ReleaseReportJson;
 import com.zhapi.json.WorkspaceJson;
 import com.zhapi.json.responses.DependenciesForARepoResponseJson;
 import com.zhapi.json.responses.GetBoardForRepositoryResponseJson;
@@ -46,6 +50,7 @@ import com.zhapi.services.BoardService;
 import com.zhapi.services.DependenciesService;
 import com.zhapi.services.EpicsService;
 import com.zhapi.services.IssuesService;
+import com.zhapi.services.ReleaseReportService;
 import com.zhapi.services.WorkspaceService;
 
 /**
@@ -364,6 +369,80 @@ public class ZHTest extends AbstractTest {
 		assertNotNull(ssoWorkspace);
 		assertTrue(ssoWorkspace.getName().equals("Security SSO"));
 
+	}
+
+	@Test
+	public void doReleaseReportsTest() {
+
+		ReleaseReportService service = new ReleaseReportService(getClient());
+
+		// Get release report
+		{
+			ApiResponse<ReleaseReportJson> ar = service.getReleaseReport("5d8c171fab23e8000107cd86");
+			assertNotNull(ar);
+			assertNotNull(ar.getResponse());
+			ReleaseReportJson rrj = ar.getResponse();
+
+			assertEquals(rrj.getStart_date().getTime(), 1569384000000l);
+			assertEquals(rrj.getCreated_at().getTime(), 1569462047253l);
+			assertEquals(rrj.getDesired_end_date().getTime(), 1571284800000l);
+
+			assertEquals(rrj.getTitle(), "0.5.0");
+		}
+
+		// Get release reports for repo
+		{
+			ApiResponse<List<ReleaseReportJson>> ar = service.getReleaseReportsForRepo(codewindRepoId);
+			assertNotNull(ar);
+			assertNotNull(ar.getResponse());
+
+			List<ReleaseReportJson> l = ar.getResponse();
+
+			System.out.println(l);
+
+			List<String> knownReleaseIds = Arrays.asList("5d8c171fab23e8000107cd86", "5d9ccea2aba55400015a6209",
+					"5d9dd9ce43d1350001acf124");
+
+			knownReleaseIds.forEach(releaseId -> {
+				ReleaseReportJson rrj = l.stream().filter(e -> e.getRelease_id().equals(releaseId)).findFirst().orElse(null);
+				assertNotNull(rrj);
+
+				assertNotNull(rrj.getStart_date());
+				assertNotNull(rrj.getDesired_end_date());
+				assertNotNull(rrj.getCreated_at());
+				assertNotNull(rrj.getState());
+			});
+		}
+
+		// Get release report issues
+		{
+			String RELEASE_REPORT_0_5 = "5d8c171fab23e8000107cd86";
+			ApiResponse<List<ReleaseReportIssueJson>> ar = service.getAllReleaseReportIssues(RELEASE_REPORT_0_5);
+			assertNotNull(ar);
+			assertNotNull(ar.getResponse());
+
+			List<ReleaseReportIssueJson> l = ar.getResponse();
+
+			assertTrue(l.size() > 0);
+
+			HashSet<Long> issueNumbers = new HashSet<>();
+
+			l.forEach(rrij -> {
+
+				long repoId = rrij.getRepo_id();
+
+				assertTrue(repoId == 191986078 || repoId == 190792270);
+
+				issueNumbers.add(rrij.getIssue_number());
+			});
+
+			List<Long> expected = Arrays.asList(142l, 292l, 541l, 632l, 709l);
+
+			expected.forEach(issue -> {
+				assertTrue(issueNumbers.contains(issue));
+			});
+
+		}
 	}
 
 	private static IssueEventJson createIssueEventJson(int userId, String type, long createdAt) {

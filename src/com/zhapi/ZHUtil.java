@@ -16,6 +16,10 @@
 
 package com.zhapi;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+
 import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -53,6 +57,21 @@ public class ZHUtil {
 		} catch (InterruptedException e) {
 			throwAsUnchecked(e);
 		}
+	}
+
+	public static String readStringFromInputStream(InputStream is) throws IOException {
+		byte[] barr = new byte[1024 * 8];
+
+		int c;
+
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+
+		while (-1 != (c = is.read(barr))) {
+			baos.write(barr, 0, c);
+		}
+
+		return new String(baos.toByteArray());
+
 	}
 
 }

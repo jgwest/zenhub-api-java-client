@@ -29,6 +29,15 @@ import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
+import org.apache.http.HttpEntity;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.methods.CloseableHttpResponse;
+import org.apache.http.client.methods.HttpPatch;
+import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.util.EntityUtils;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
@@ -80,7 +89,7 @@ public class ZenHubClient {
 
 	public <T> ApiResponse<T> post(String apiUrl, Object postBody, Class<T> clazz) {
 
-		ApiResponse<String> body = postRequest(apiUrl, postBody);
+		ApiResponse<String> body = requestWithBody(apiUrl, "POST", postBody);
 
 		if (DEBUG) {
 			log.out(body.getResponse());
@@ -101,20 +110,73 @@ public class ZenHubClient {
 
 	}
 
-	private ApiResponse<String> postRequest(String requestUrlParam, Object postBody) {
+	public <T> ApiResponse<T> patch(String apiUrl, Object patchBody, Class<T> clazz) {
+
+		// Because the HTTP URLConnection API doesn't support PATCH, we have to pull in
+		// Apache HTTP Client :|
+		try {
+			return patchInner(apiUrl, patchBody, clazz);
+		} catch (IOException e) {
+			throw ZenHubApiException.createFromThrowable(e);
+		}
+	}
+
+	private <T> ApiResponse<T> patchInner(String apiUrl, Object patchBody, Class<T> clazz)
+			throws ClientProtocolException, IOException {
+
+		CloseableHttpClient httpclient = HttpClients.createDefault();
+		ObjectMapper om = new ObjectMapper();
+
+		apiUrl = ensureDoesNotBeginsWithSlash(apiUrl);
+
+		HttpPatch httpPatch = new HttpPatch("https://" + this.baseApiUrl + "/" + apiUrl);
+		httpPatch.setHeader("Content-Type", "application/json");
+		httpPatch.setHeader(HEADER_AUTHORIZATION, apiKey);
+
+		String requestBody = om.writeValueAsString(patchBody);
+
+		httpPatch.setEntity(new StringEntity(requestBody));
+		CloseableHttpResponse response = httpclient.execute(httpPatch);
+
+		try {
+			HttpEntity entity = response.getEntity();
+			String responseBody = ZHUtil.readStringFromInputStream(entity.getContent());
+			EntityUtils.consume(entity);
+
+			int statusCode = response.getStatusLine().getStatusCode();
+			if (response.getStatusLine().getStatusCode() != 200) {
+				throw new ZenHubApiException("Request failed - HTTP Code: " + statusCode + "  body: " + responseBody);
+			}
+
+			T resultObj = om.readValue(responseBody, clazz);
+
+			int rateLimit_limit = Integer.parseInt(response.getFirstHeader("X-RateLimit-Limit").getValue());
+			int rateLimit_used = Integer.parseInt(response.getFirstHeader("X-RateLimit-Used").getValue());
+			int rateLimit_reset = Integer.parseInt(response.getFirstHeader("X-RateLimit-Reset").getValue());
+
+			RateLimitStatus rateLimit = new RateLimitStatus(rateLimit_limit, rateLimit_used, rateLimit_reset);
+
+			return new ApiResponse<T>(resultObj, rateLimit, responseBody);
+
+		} finally {
+			response.close();
+		}
+	}
+
+	private ApiResponse<String> requestWithBody(String requestUrlParam, String method, Object reqBody) {
 
 		requestUrlParam = ensureDoesNotBeginsWithSlash(requestUrlParam);
 
 		HttpURLConnection httpRequest;
 		try {
-			httpRequest = createConnection("https://" + this.baseApiUrl + "/" + requestUrlParam, "POST", apiKey);
+			httpRequest = createConnection("https://" + this.baseApiUrl + "/" + requestUrlParam, method, apiKey);
 
-			if (postBody != null) {
+			if (reqBody != null) {
 				httpRequest.setRequestProperty("Content-Type", "application/json");
 				httpRequest.setDoOutput(true);
 
 				DataOutputStream payloadStream = new DataOutputStream(httpRequest.getOutputStream());
-				payloadStream.write(postBody.toString().getBytes());
+				payloadStream.write(reqBody.toString().getBytes());
 			}
 
 			final int code = httpRequest.getResponseCode();
