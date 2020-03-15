@@ -1,5 +1,5 @@
 /*
- * Copyright 2019 Jonathan West
+ * Copyright 2019, 2020 Jonathan West
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,8 +24,10 @@ import java.net.URL;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
+import javax.net.ssl.HostnameVerifier;
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.TrustManager;
 import javax.net.ssl.X509TrustManager;
 
@@ -57,7 +59,9 @@ public class ZenHubClient {
 
 	private static final ZHApiLog log = ZHApiLog.getInstance();
 
-	public ZenHubClient(String apiUrl, String apiKey) {
+	private final boolean allowUntrustedCerts;
+
+	public ZenHubClient(String apiUrl, String apiKey, boolean allowUntrustedCerts) {
 
 		if (apiUrl.startsWith(HTTPS_PREFIX)) {
 			// Strip https:// prefix, if preseent.
@@ -66,6 +70,11 @@ public class ZenHubClient {
 
 		this.apiKey = apiKey;
 		this.baseApiUrl = ensureDoesNotEndWithSlash(apiUrl);
+		this.allowUntrustedCerts = allowUntrustedCerts;
+	}
+
+	public ZenHubClient(String apiUrl, String apiKey) {
+		this(apiUrl, apiKey, false);
 	}
 
 	public <T> ApiResponse<T> get(String apiUrl, Class<T> clazz) {
@@ -169,7 +178,8 @@ public class ZenHubClient {
 
 		HttpURLConnection httpRequest;
 		try {
-			httpRequest = createConnection("https://" + this.baseApiUrl + "/" + requestUrlParam, method, apiKey);
+			httpRequest = createConnection("https://" + this.baseApiUrl + "/" + requestUrlParam, method, apiKey,
+					allowUntrustedCerts);
 
 			if (reqBody != null) {
 				httpRequest.setRequestProperty("Content-Type", "application/json");
@@ -209,7 +219,8 @@ public class ZenHubClient {
 
 		HttpURLConnection httpRequest;
 		try {
-			httpRequest = createConnection("https://" + this.baseApiUrl + "/" + requestUrlParam, "GET", apiKey);
+			httpRequest = createConnection("https://" + this.baseApiUrl + "/" + requestUrlParam, "GET", apiKey,
+					allowUntrustedCerts);
 			final int code = httpRequest.getResponseCode();
 
 			int rateLimit_limit = httpRequest.getHeaderFieldInt("X-RateLimit-Limit", 0);
@@ -234,14 +245,25 @@ public class ZenHubClient {
 
 	}
 
-	private static HttpURLConnection createConnection(String uri, String method, String authorization) throws IOException {
+	private static HttpURLConnection createConnection(String uri, String method, String authorization, boolean allowUntrusted)
+			throws IOException {
 
 		URL url = new URL(uri);
 
 		HttpURLConnection connection = (HttpURLConnection) url.openConnection();
 		if (connection instanceof HttpsURLConnection) {
 			HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
-			httpsConnection.setSSLSocketFactory(generateSslContext(false).getSocketFactory());
+			httpsConnection.setSSLSocketFactory(generateSslContext(allowUntrusted).getSocketFactory());
+
+			HostnameVerifier hostnameVerifier = new HostnameVerifier() {
+				@Override
+				public boolean verify(String hostname, SSLSession session) {
+					return true;
+				}
+			};
+
+			((HttpsURLConnection) connection).setHostnameVerifier(hostnameVerifier);
+
 		}
 		connection.setRequestMethod(method);
 
