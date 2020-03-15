@@ -255,14 +255,16 @@ public class ZenHubClient {
 			HttpsURLConnection httpsConnection = (HttpsURLConnection) connection;
 			httpsConnection.setSSLSocketFactory(generateSslContext(allowUntrusted).getSocketFactory());
 
-			HostnameVerifier hostnameVerifier = new HostnameVerifier() {
-				@Override
-				public boolean verify(String hostname, SSLSession session) {
-					return true;
-				}
-			};
+			if (allowUntrusted) {
+				HostnameVerifier hostnameVerifier = new HostnameVerifier() {
+					@Override
+					public boolean verify(String hostname, SSLSession session) {
+						return true;
+					}
+				};
 
-			((HttpsURLConnection) connection).setHostnameVerifier(hostnameVerifier);
+				((HttpsURLConnection) connection).setHostnameVerifier(hostnameVerifier);
+			}
 
 		}
 		connection.setRequestMethod(method);
